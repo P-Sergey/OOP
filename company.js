@@ -1,37 +1,36 @@
 class Director {
   constructor(web, mob, qa) {
     this.projectsTotalCount = 0;
-    this.dirProjects = [];
+    this.incomingProjects = [];
   } 
   
   takeProjects() {
     const incomingProjectsCount = Math.round(Math.random() * 4);
     this.projectsTotalCount += incomingProjectsCount;
     for (let i = 0; i < incomingProjectsCount; i++) {
-      const newProject = new Project();
-      this.dirProjects.push(newProject);
+      this.incomingProjects.push(new Project());
     }
   } 
 
   sortProject(web, mob) {
 
-    this.dirProjects.forEach((project) => {
-      if (project.type === 'web' && web.staff.some(unit => unit.atWork === false)) {
+    this.incomingProjects.forEach((project) => {
+      if (project.type === 'web' && web.staff.some(unit => !unit.atWork)) {
         web.projects.push(project);
         project.inProgress = true;
       }
-      if (project.type === 'mob' && mob.staff.some(unit => unit.atWork === false)) {
+      if (project.type === 'mob' && mob.staff.some(unit => !unit.atWork)) {
         mob.projects.push(project);
         project.inProgress = true;
       }
     })
-    const filteredProjects = this.dirProjects.filter(project => project.inProgress === false);
-    this.dirProjects = filteredProjects;
+    const pendingProjects = this.incomingProjects.filter(project => !project.inProgress);
+    this.incomingProjects = pendingProjects;
   }
 
   recruiting(web, mob, qa) {
-    this.hireWorkers(this.dirProjects, 'web', web);
-    this.hireWorkers(this.dirProjects, 'mob', mob);
+    this.hireWorkers(this.incomingProjects, 'web', web);
+    this.hireWorkers(this.incomingProjects, 'mob', mob);
     this.hireWorkers(qa.projects, 'qa', qa);
   }; 
 
@@ -47,7 +46,7 @@ class Director {
 
   idleWorkers(dep) {
     const newStaff = dep.staff.map(unit => {
-      if(unit.atWork === false) {
+      if(!unit.atWork) {
         unit.idle += 1;
       }
       return unit;
@@ -90,19 +89,16 @@ class Department {
 }
 
 class WebDepartment extends Department {
-  projectAtWork(qaDep) {
+  projectAtWork(qa) {
 		this.staff.forEach(unit => {
 			if (!unit.atWork && this.projects.length) {
-				unit.project = this.projects[0];
-				unit.atWork = true;
-        unit.idle = 0;
-				this.projects.splice(0, 1);
+				unit.assign(this.projects.shift())
 			}
 			if (unit.atWork && unit.project.duration >= 1) {
 				unit.project.duration -= 1;
 				if (unit.project.duration === 0 ) {
           unit.project.type = 'qa';
-					qaDep.projects.push(unit.project);
+					qa.projects.push(unit.project);
 					unit.project = {};
 					unit.exp += 1;
           unit.atWork = false;
@@ -113,7 +109,7 @@ class WebDepartment extends Department {
 }
 
 class MobDepartment extends Department {
-  projectAtWork(qaDep) {
+  projectAtWork(qa) {
     this.projects.forEach(project => {
 
       if (project.duration > project.workers.length) {
@@ -136,13 +132,13 @@ class MobDepartment extends Department {
         })
         project.workers = [];
         project.type = 'qa';
-        qaDep.projects.push(project);
-        const becomeQA = this.projects.filter(project => project.type !== 'qa');
-        this.projects = becomeQA;
+        qa.projects.push(project);
+        const notYetQA = this.projects.filter(project => project.type !== 'qa');
+        this.projects = notYetQA;
       }
       
     })
-    const idleWorkers = this.staff.filter(unit => unit.atWork === false);
+    const idleWorkers = this.staff.filter(unit => !unit.atWork);
     this.staff = idleWorkers;
 	}
 }
@@ -159,10 +155,7 @@ class QADepartment extends Department {
       }
 
 			if (!unit.atWork && this.projects.length) {
-				unit.project = this.projects[0];
-				unit.atWork = true;
-        unit.idle = 0;
-        this.projects.splice(0, 1); 
+				unit.assign(this.projects.shift());
 			}      
     })
   }
@@ -174,6 +167,12 @@ class Developer {
     this.idle = 0;
     this.exp = 0;
     this.project = {};
+  }
+
+  assign(project) {
+    this.project = project;
+    this.atWork = true;
+    this.idle = 0;
   }
 }
 
@@ -203,9 +202,9 @@ function company(days) {
   }
 
   console.log(`принято проектов: ${director.projectsTotalCount}`);
-  console.log(`выполнено проектов: ${qaDep.doneProjectsCount}`);
   console.log(`нанято разработчиков ${mobDep.hiredWorkersCount + webDep.hiredWorkersCount + qaDep.hiredWorkersCount}`)
+  console.log(`выполнено проектов: ${qaDep.doneProjectsCount}`);
   console.log(`уволено разработчиков ${mobDep.firedWorkersCount + webDep.firedWorkersCount + qaDep.firedWorkersCount}`)
 
 }
-company(365);
+company(1000);
