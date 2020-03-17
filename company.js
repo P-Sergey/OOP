@@ -16,12 +16,10 @@ class Director {
 
     this.incomingProjects.forEach((project) => {
       if (project.type === 'web' && web.staff.some(unit => !unit.atWork)) {
-        web.projects.push(project);
-        project.inProgress = true;
+        web.acceptProject(project);
       }
       if (project.type === 'mob' && mob.staff.some(unit => !unit.atWork)) {
-        mob.projects.push(project);
-        project.inProgress = true;
+        mob.acceptProject(project);
       }
     })
     const pendingProjects = this.incomingProjects.filter(project => !project.inProgress);
@@ -37,22 +35,12 @@ class Director {
   hireWorkers(projects, type, dep) {
     projects.forEach(project => {
       if (project.type === type && (dep.staff.every(unit => unit.atWork) || !dep.staff.length)) {
-        const newWorker = new Developer();
-        dep.staff = [...dep.staff, newWorker];
+        dep.staff.push(new Developer());
         dep.hiredWorkersCount += 1;
       };
     });
   }
-
-  idleWorkers(dep) {
-    const newStaff = dep.staff.map(unit => {
-      if(!unit.atWork) {
-        unit.idle += 1;
-      }
-      return unit;
-    });
-    dep.staff = newStaff;
-  }
+  
 }
 
 class Project {
@@ -77,12 +65,25 @@ class Department {
     this.doneProjectsCount = 0;
   }
 
+  acceptProject(project) {
+    this.projects.push(project);
+    project.inProgress = true;
+  }
+
+  idleWorkers() {
+    const newStaff = this.staff.map(unit => {
+      if (!unit.atWork) {
+        unit.idle += 1;
+      }
+      return unit;
+    });
+   this.staff = newStaff;
+  }
+
   firing() {
-    if(this.staff.some(unit => unit.idle > 3)) {
-      let sortedStaff = this.staff.sort((a, b) => a.exp - b.exp);
-      const firedWorkerIndex = sortedStaff.findIndex(unit => unit.idle >= 3);
-      sortedStaff.splice(firedWorkerIndex, 1);
-      this.staff = sortedStaff;
+    if (this.staff.some(unit => unit.idle > 3)) {
+      const firedWorkerIndex = this.staff.sort((a, b) => a.exp - b.exp).findIndex(unit => unit.idle >= 3);
+      this.staff.splice(firedWorkerIndex, 1);
       this.firedWorkersCount += 1;
     }
 	}	
@@ -99,9 +100,7 @@ class WebDepartment extends Department {
 				if (unit.project.duration === 0 ) {
           unit.project.type = 'qa';
 					qa.projects.push(unit.project);
-					unit.project = {};
-					unit.exp += 1;
-          unit.atWork = false;
+					unit.projectComplete();
 				}
 			}
 		})
@@ -111,35 +110,39 @@ class WebDepartment extends Department {
 class MobDepartment extends Department {
   projectAtWork(qa) {
     this.projects.forEach(project => {
+      console.log(project);
 
       if (project.duration > project.workers.length) {
         this.staff.forEach(unit => {
           if (!unit.atWork) {
             unit.atWork = true;
             unit.idle = 0;
-            project.inProgress = true;
             project.workers.push(unit);
+            project.inProgress = true;
             project.duration -= 1;
-          }      
-        })
-      }
 
-      if (project.duration === 0) {
-        project.workers.forEach(unit => {
-          unit.atWork = false;
-          unit.exp += 1;
-          this.staff.push(unit);
+            if (project.duration === 0) {
+              project.workers.forEach(unit => {
+                unit.atWork = false;
+                unit.exp += 1;
+                this.staff.push(unit);
+                unit = null;
+                project.type = 'qa';
+                qa.projects.push(project);
+                const notYetQA = this.projects.filter(project => project.type !== 'qa');
+                this.projects = [...notYetQA];
+              })
+
+            }
+            
+          }      
+
         })
-        project.workers = [];
-        project.type = 'qa';
-        qa.projects.push(project);
-        const notYetQA = this.projects.filter(project => project.type !== 'qa');
-        this.projects = notYetQA;
+
       }
-      
-    })
-    const idleWorkers = this.staff.filter(unit => !unit.atWork);
-    this.staff = idleWorkers;
+      const idleWorkers = this.staff.filter(unit => !unit.atWork);
+      this.staff = idleWorkers;     
+    })  
 	}
 }
 
@@ -148,9 +151,7 @@ class QADepartment extends Department {
     this.staff.forEach(unit => {
       if(unit.atWork) {
         unit.project.isDone = true;
-				unit.exp += 1;
-				unit.project = {};
-        unit.atWork = false;
+				unit.projectComplete();
         this.doneProjectsCount += 1;
       }
 
@@ -166,13 +167,19 @@ class Developer {
     this.atWork = false;
     this.idle = 0;
     this.exp = 0;
-    this.project = {};
+    this.project = null;
   }
 
   assign(project) {
     this.project = project;
     this.atWork = true;
     this.idle = 0;
+  }
+
+  projectComplete() {
+    this.exp += 1;
+		this.project = null;
+    this.atWork = false;
   }
 }
 
@@ -189,17 +196,23 @@ function company(days) {
     director.recruiting(webDep, mobDep, qaDep);
 
     webDep.projectAtWork(qaDep);
-    mobDep.projectAtWork(qaDep);
+   /*  mobDep.projectAtWork(qaDep); */
     qaDep.projectAtWork();
 
-    director.idleWorkers(webDep);
-    director.idleWorkers(mobDep);
-    director.idleWorkers(qaDep);
+    webDep.idleWorkers();
+    mobDep.idleWorkers();
+    qaDep.idleWorkers();
 
     webDep.firing();
     mobDep.firing();
-    qaDep.firing();  
+    qaDep.firing();
   }
+  console.log(`qa-отдел нанял: ${qaDep.hiredWorkersCount}`)
+  console.log(`qa-отдел уволил: ${qaDep.firedWorkersCount}`)
+  console.log(`mob-отдел нанял: ${mobDep.hiredWorkersCount}`)
+  console.log(`mob-отдел уволил: ${mobDep.firedWorkersCount}`)
+  console.log(`web-отдел нанял: ${webDep.hiredWorkersCount}`)
+  console.log(`web-отдел уволил: ${webDep.firedWorkersCount}`)
 
   console.log(`принято проектов: ${director.projectsTotalCount}`);
   console.log(`нанято разработчиков ${mobDep.hiredWorkersCount + webDep.hiredWorkersCount + qaDep.hiredWorkersCount}`)
@@ -207,4 +220,4 @@ function company(days) {
   console.log(`уволено разработчиков ${mobDep.firedWorkersCount + webDep.firedWorkersCount + qaDep.firedWorkersCount}`)
 
 }
-company(1000);
+company(100);
