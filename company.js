@@ -34,16 +34,6 @@ class Developer {
     this.project = null;
     this.atWork = false;
   }
-
-  startWorking() {
-    this.atWork = true;
-    this.idle = 0;
-  }
-
-  endWorking() {
-    this.atWork = false;
-    this.exp += 1;
-  }
 }
 
 class Director {
@@ -154,12 +144,12 @@ class MobDepartment extends Department {
       }
       if (project.workers.length > 0) {
         project.workers.forEach((unit) => {
-          unit.startWorking();
+          unit.assignProject();
         });
       }
       if (project.duration === 0) {
         project.workers.forEach((unit) => {
-          unit.endWorking();
+          unit.completedProject();
         });
         this.staff.push(project.workers.shift());
       }
@@ -212,8 +202,8 @@ function company(days) {
   }
 
   console.log(`принято проектов: ${director.projectsTotalCount}`);
-  console.log(`нанято разработчиков ${mobDep.hiredWorkersCount + webDep.hiredWorkersCount + qaDep.hiredWorkersCount}`);
   console.log(`выполнено проектов: ${qaDep.doneProjectsCount}`);
+  console.log(`нанято разработчиков ${mobDep.hiredWorkersCount + webDep.hiredWorkersCount + qaDep.hiredWorkersCount}`);
   console.log(`уволено разработчиков ${mobDep.firedWorkersCount + webDep.firedWorkersCount + qaDep.firedWorkersCount}`);
 }
 
